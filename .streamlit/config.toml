@@ -1,0 +1,7 @@
+[theme]
+base = "dark"
+primaryColor = "#FFB800"              # Cor dos botões principais, abas ativas e seletores (Dourado/Amarelo XP)
+backgroundColor = "#0E1117"           # Fundo principal da página (Preto/Cinza escuro)
+secondaryBackgroundColor = "#1E222D"  # Fundo de cards, caixas de input e barras laterais
+textColor = "#FFFFFF"                 # Cor do texto principal
+font = "sans serif"
