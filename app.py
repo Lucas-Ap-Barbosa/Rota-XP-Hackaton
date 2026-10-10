@@ -2,6 +2,18 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+# Tenta integrar com os módulos dos colegas, com fallback seguro
+try:
+    from ai_service import gerar_teaser_cliente, gerar_briefing_assessor
+except ImportError:
+    def gerar_teaser_cliente(mensagem_usuario):
+        return (
+            "Analisando o que você compartilhou com a sua carteira consolidada, identificamos oportunidades "
+            "relevantes de otimização de caixa e proteção contra volatilidade que seu assessor pode explorar com você."
+        )
+    def gerar_briefing_assessor(historico_dores):
+        return f"**Resumo do Cliente:**\n{historico_dores}"
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="Assessor 360 | RotaXP",
@@ -10,11 +22,10 @@ st.set_page_config(
 )
 
 # --- 1. MOCK DATA (OPEN FINANCE SIMULADO) ---
-# O Dev 3 pode editar este dicionário/JSON para enriquecer os dados
 MOCK_OPEN_FINANCE = {
     "cliente": "Carlos Eduardo Silva",
     "perfil": "Moderado",
-    "saldo_conta_corrente": 85000.00,  # Caixa ocioso
+    "saldo_conta_corrente": 85000.00,
     "posicoes": [
         {"instituicao": "Banco Tradicional A", "produto": "CDB Pós-fixado", "tipo": "Renda Fixa", "valor": 320000.00, "taxa": "85% CDI"},
         {"instituicao": "Banco Tradicional B", "produto": "Poupança", "tipo": "Renda Fixa", "valor": 45000.00, "taxa": "TR + 0.5%"},
@@ -24,13 +35,28 @@ MOCK_OPEN_FINANCE = {
 }
 
 # --- 2. INICIALIZAÇÃO DE ESTADO (SESSION STATE) ---
+if "identificacao_concluida" not in st.session_state:
+    st.session_state.identificacao_concluida = False
+
+if "cliente_dados" not in st.session_state:
+    st.session_state.cliente_dados = {"nome": "", "cpf": ""}
+
 if "open_finance_autorizado" not in st.session_state:
     st.session_state.open_finance_autorizado = False
 
+if "etapa_chat" not in st.session_state:
+    # Etapas: "panorama" -> "metas" -> "revisao" -> "agendamento_liberado"
+    st.session_state.etapa_chat = "panorama"
+
+if "respostas_cliente" not in st.session_state:
+    st.session_state.respostas_cliente = {
+        "panorama": "",
+        "metas": "",
+        "adicionais": []
+    }
+
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Olá, Carlos! Sou a Sofia, assistente virtual do seu assessor de investimentos. Para prepararmos a sua próxima reunião, você autoriza a sincronização segura dos seus dados via Open Finance?"}
-    ]
+    st.session_state.messages = []
 
 if "resumo_dores" not in st.session_state:
     st.session_state.resumo_dores = ""
@@ -39,95 +65,180 @@ if "agendamento" not in st.session_state:
     st.session_state.agendamento = None
 
 
-# --- 3. LÓGICA DE SIMULAÇÃO DE IA ---
-# O Dev 2 pode plugar aqui a chamada real para uma LLM
-def simular_resposta_ia(texto_usuario):
-    """
-    Gera um teaser curto estimulando curiosidade sem dar recomendação direta.
-    """
-    texto_lower = texto_usuario.lower()
-    if "perder" in texto_lower or "queda" in texto_lower or "risco" in texto_lower:
-        return (
-            "Compreendo a preocupação com as oscilações recentes. Analisando rapidamente sua carteira, "
-            "notamos oportunidades de proteção e rebalanceamento que podem reduzir essa volatilidade. "
-            "Seu assessor já foi sinalizado sobre isso. Deseja acrescentar mais alguma dúvida ou já agendamos o bate-papo?"
-        )
-    else:
-        return (
-            "Anotado! Identifiquei que você possui capital com potencial de melhor remuneração "
-            "e alguns ativos que excedem a garantia de segurança bancária. "
-            "Seu assessor terá propostas sob medida para isso. Quer pontuar algo mais ou prefere escolher o melhor horário?"
-        )
+# --- 3. FUNÇÕES AUXILIARES DE FORMATAÇÃO ---
+def compilar_resumo_cliente():
+    panorama = st.session_state.respostas_cliente["panorama"]
+    metas = st.session_state.respostas_cliente["metas"]
+    adicionais = st.session_state.respostas_cliente["adicionais"]
 
-# --- 4. INTERFACE PRINCIPAL EM ABAS ---
+    texto = f"📌 **Panorama dos Investimentos:**\n{panorama}\n\n📌 **Metas e Preocupações:**\n{metas}"
+    if adicionais:
+        texto += "\n\n📌 **Observações Complementares:**\n" + "\n".join([f"• {item}" for item in adicionais])
+    return texto
+
+
+# --- 4. INTERFACE PRINCIPAL ---
 tab_cliente, tab_assessor = st.tabs(["📱 Visão do Investidor (Chat)", "📊 Visão do Assessor (Cockpit)"])
 
 # ==========================================================
-# ABA 1: VISÃO DO INVESTIDOR (Dev 1 foca aqui)
+# ABA 1: VISÃO DO INVESTIDOR
 # ==========================================================
 with tab_cliente:
     st.caption("Protótipo de Triagem Inteligente Pré-Reunião")
 
-    # Passo 1: Consentimento Open Finance
-    if not st.session_state.open_finance_autorizado:
-        st.info("🔐 Conexão Segura com Banco Central e Open Finance")
-        if st.button("🔗 Autorizar compartilhamento de dados financeiros"):
-            st.session_state.open_finance_autorizado = True
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": "✅ Dados sincronizados com sucesso! Identifiquei sua carteira consolidada. Me conte: quais são suas principais dúvidas ou objetivos para a nossa próxima conversa?"
-            })
-            st.rerun()
+    # ETAPA PRÉVIA: IDENTIFICAÇÃO DO INVESTIDOR (NOME E CPF)
+    if not st.session_state.identificacao_concluida:
+        st.info("👋 Seja bem-vindo ao atendimento preparatório! Por favor, informe seus dados para iniciar.")
+        with st.form("form_identificacao"):
+            col_nome, col_cpf = st.columns(2)
+            with col_nome:
+                nome_input = st.text_input("Nome Completo", placeholder="Ex: Carlos Eduardo Silva")
+            with col_cpf:
+                cpf_input = st.text_input("CPF", placeholder="000.000.000-00")
 
-    # Exibição do histórico de mensagens
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+            btn_continuar = st.form_submit_button("Continuar", type="primary")
+            if btn_continuar:
+                if nome_input.strip() and cpf_input.strip():
+                    st.session_state.cliente_dados = {
+                        "nome": nome_input.strip(),
+                        "cpf": cpf_input.strip()
+                    }
+                    st.session_state.identificacao_concluida = True
+                    primeiro_nome = nome_input.strip().split()[0]
+                    st.session_state.messages = [
+                        {
+                            "role": "assistant",
+                            "content": f"Olá, {primeiro_nome}! Sou a Sofia, assistente virtual do seu assessor de investimentos. Para prepararmos a sua próxima reunião, você autoriza a sincronização segura dos seus dados via Open Finance?"
+                        }
+                    ]
+                    st.rerun()
+                else:
+                    st.error("Por favor, preencha o Nome e o CPF para continuar.")
 
-    # Passo 2: Input de dores e diálogo
-    if st.session_state.open_finance_autorizado:
-        user_input = st.chat_input("Digite suas dúvidas, preocupações ou metas...")
-        if user_input:
-            # Registra mensagem do cliente
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            st.session_state.resumo_dores += f" - {user_input}\n"
+    # ETAPAS SEGUINTES (APÓS A IDENTIFICAÇÃO)
+    else:
+        # HISTÓRICO DE MENSAGENS
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        # ETAPA 0: AUTORIZAÇÃO OPEN FINANCE DIRETA NO CHAT
+        if not st.session_state.open_finance_autorizado:
+            st.info("🔐 Conexão Segura com Banco Central e Open Finance")
+            if st.button("🔗 Autorizar compartilhamento de dados financeiros", type="primary"):
+                st.session_state.open_finance_autorizado = True
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": "✅ **Dados sincronizados com sucesso!** Consegui mapear suas posições financeiras.\n\nPara iniciarmos nossa preparação: me conte um pouco sobre o **panorama geral dos seus investimentos atuais** (onde costuma investir e como se sente com sua alocação hoje)?"
+                })
+                st.session_state.etapa_chat = "panorama"
+                st.rerun()
+
+        # FLUXO CONVERSACIONAL GUIADO
+        if st.session_state.open_finance_autorizado:
             
-            # Gera resposta da IA
-            resposta_bot = simular_resposta_ia(user_input)
-            st.session_state.messages.append({"role": "assistant", "content": resposta_bot})
-            st.rerun()
+            # Etapa 1: Panorama Geral
+            if st.session_state.etapa_chat == "panorama":
+                user_input = st.chat_input("Descreva o panorama geral dos seus investimentos...")
+                if user_input:
+                    st.session_state.messages.append({"role": "user", "content": user_input})
+                    st.session_state.respostas_cliente["panorama"] = user_input
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Perfeito, devidamente anotado! Agora me diga: você possui **metas específicas** para os próximos meses/anos (ex: viagens, projetos, reserva) ou **preocupações** (ex: inflação, volatilidade da bolsa, taxas) que gostaria de discutir com seu assessor?"
+                    })
+                    st.session_state.etapa_chat = "metas"
+                    st.rerun()
 
-        # Passo 3: Widget de Agendamento Guiado
-        st.divider()
-        st.subheader("📅 Agendamento com seu Assessor")
-        col_data, col_hora, col_mod = st.columns(3)
-        with col_data:
-            data_escolhida = st.date_input("Data preferida", min_value=datetime.today())
-        with col_hora:
-            hora_escolhida = st.selectbox("Horário", ["10:00", "14:30", "16:00", "18:30"])
-        with col_mod:
-            modalidade = st.selectbox("Modalidade", ["Vídeo (Google Meet)", "Ligação Telefônica", "Presencial (Escritório XP)"])
+            # Etapa 2: Metas e Preocupações
+            elif st.session_state.etapa_chat == "metas":
+                user_input = st.chat_input("Compartilhe suas metas ou preocupações...")
+                if user_input:
+                    st.session_state.messages.append({"role": "user", "content": user_input})
+                    st.session_state.respostas_cliente["metas"] = user_input
+                    
+                    # Compila o primeiro resumo
+                    resumo_texto = compilar_resumo_cliente()
+                    st.session_state.resumo_dores = resumo_texto
 
-        if st.button("Confirmar Agendamento"):
-            st.session_state.agendamento = {
-                "data": str(data_escolhida),
-                "hora": hora_escolhida,
-                "modalidade": modalidade
-            }
-            st.success(f"🎉 Reunião confirmada para {data_escolhida} às {hora_escolhida} via {modalidade}! O assessor já recebeu seu briefing.")
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"Excelente! Preparei uma síntese do que você me passou até agora:\n\n{resumo_texto}\n\n*Seu assessor terá acesso completo a este resumo para chegarem à reunião com foco total no que importa.*\n\nVocê deseja **acrescentar mais alguma observação** ou podemos **prosseguir** para o agendamento?"
+                    })
+                    st.session_state.etapa_chat = "revisao"
+                    st.rerun()
+
+            # Etapa 3: Revisão (Escrever mais OU Prosseguir)
+            elif st.session_state.etapa_chat == "revisao":
+                if st.button("➡️ Prosseguir para o Agendamento", type="primary"):
+                    teaser = gerar_teaser_cliente(st.session_state.resumo_dores)
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"💡 **Insight da Sofia:** {teaser}\n\nVamos agora escolher o melhor dia, horário e modalidade para o seu encontro com o assessor!"
+                    })
+                    st.session_state.etapa_chat = "agendamento_liberado"
+                    st.rerun()
+
+                user_input_extra = st.chat_input("Digite aqui se quiser acrescentar mais alguma dúvida ou observação...")
+                if user_input_extra:
+                    st.session_state.messages.append({"role": "user", "content": user_input_extra})
+                    st.session_state.respostas_cliente["adicionais"].append(user_input_extra)
+                    
+                    # Atualiza o resumo
+                    resumo_atualizado = compilar_resumo_cliente()
+                    st.session_state.resumo_dores = resumo_atualizado
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"Anotado e incluído! Aqui está seu resumo atualizado:\n\n{resumo_atualizado}\n\nQuando estiver pronto, basta clicar em **Prosseguir para o Agendamento** acima!"
+                    })
+                    st.rerun()
+
+            # Etapa 4: Agendamento Liberado
+            elif st.session_state.etapa_chat == "agendamento_liberado":
+                st.divider()
+                st.subheader("📅 Agendamento com seu Assessor")
+                col_data, col_hora, col_mod = st.columns(3)
+                with col_data:
+                    data_escolhida = st.date_input("Data preferida", min_value=datetime.today())
+                with col_hora:
+                    hora_escolhida = st.selectbox("Horário", ["10:00", "14:30", "16:00", "18:30"])
+                with col_mod:
+                    modalidade = st.selectbox(
+                        "Modalidade do Encontro",
+                        ["Vídeo (Google Meet)", "Presencial (Escritório XP)", "Ligação Telefônica"]
+                    )
+
+                if st.button("Confirmar Agendamento", type="primary"):
+                    st.session_state.agendamento = {
+                        "data": str(data_escolhida),
+                        "hora": hora_escolhida,
+                        "modalidade": modalidade
+                    }
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"🎉 **Reunião confirmada com sucesso!**\n- **Data:** {data_escolhida}\n- **Horário:** {hora_escolhida}\n- **Modalidade:** {modalidade}\n\nSeu assessor já recebeu o briefing com suas prioridades e a análise da sua carteira."
+                    })
+                    st.success(f"🎉 Reunião confirmada para {data_escolhida} às {hora_escolhida} via {modalidade}!")
+                    st.rerun()
 
 
 # ==========================================================
-# ABA 2: VISÃO DO ASSESSOR (Dev 3 e Dev 4 focam aqui)
+# ABA 2: VISÃO DO ASSESSOR (COCKPIT)
 # ==========================================================
 with tab_assessor:
     st.header("Briefing Executivo do Cliente")
     
-    col1, col2, col3 = st.columns(3)
+    # Grid de métricas do topo (incluindo a Modalidade)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Cliente", MOCK_OPEN_FINANCE["cliente"])
     col2.metric("Perfil de Investidor", MOCK_OPEN_FINANCE["perfil"])
-    status_agenda = f"{st.session_state.agendamento['data']} às {st.session_state.agendamento['hora']}" if st.session_state.agendamento else "Pendente"
-    col3.metric("Status da Reunião", status_agenda)
+    
+    status_data_hora = f"{st.session_state.agendamento['data']} às {st.session_state.agendamento['hora']}" if st.session_state.agendamento else "Pendente"
+    col3.metric("Data e Horário", status_data_hora)
+    
+    modalidade_status = st.session_state.agendamento["modalidade"] if st.session_state.agendamento else "Aguardando definição"
+    col4.metric("Modalidade", modalidade_status)
 
     st.divider()
 
@@ -137,19 +248,18 @@ with tab_assessor:
         st.subheader("📋 Dores e Demandas Captadas pelo Bot")
         if st.session_state.resumo_dores:
             st.info(st.session_state.resumo_dores)
-            st.caption("💡 Sugestão para o assessor: abordar a otimização de renda fixa e rebalanceamento cambial/ações.")
+            st.caption("💡 Sugestão para o assessor: abordar pontos de liquidez imediata e rebalanceamento de ativos.")
         else:
             st.write("O cliente ainda não enviou observações nesta sessão.")
 
         st.subheader("🚨 Radar de Risco & Alertas (Regras de Negócio)")
-        # Regras automáticas simples
         alertas = []
         if MOCK_OPEN_FINANCE["saldo_conta_corrente"] > 50000:
-            alertas.append(f"⚠️ **Caixa Ocioso Elevado:** R$ {MOCK_OPEN_FINANCE['saldo_conta_corrente']:,.2f} parados em conta sem remuneração.")
+            alertas.append(f"⚠️ **Caixa Ocioso Elevado:** R$ {MOCK_OPEN_FINANCE['saldo_conta_corrente']:,.2f} parados em conta corrente sem rendimento.")
         
         for pos in MOCK_OPEN_FINANCE["posicoes"]:
             if pos["valor"] > 250000 and pos["tipo"] == "Renda Fixa":
-                alertas.append(f"⚠️ **Risco de FGC Excedido:** R$ {pos['valor']:,.2f} no {pos['instituicao']} (Teto FGC: R$ 250 mil).")
+                alertas.append(f"⚠️ **Risco de FGC Excedido:** R$ {pos['valor']:,.2f} no {pos['instituicao']} (Teto de R$ 250 mil).")
             if "-18" in pos["taxa"]:
                 alertas.append(f"🔻 **Alerta de Volatilidade:** Queda de 18% em {pos['produto']} no último mês.")
 
