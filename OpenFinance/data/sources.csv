@@ -1,0 +1,8 @@
+source_id,name,url,role,license
+CVM_FUND_CAD,CVM - Informação Cadastral de Fundos,https://dados.cvm.gov.br/dataset/fi-cad,Official fund identity/catalog source,Open Data / ODbL on CVM portal
+CVM_FUND_DAILY,CVM - Informe Diário de Fundos,https://dados.cvm.gov.br/dataset/fi-doc-inf_diario,Official fund quota/PL dataset reference,Open Data / ODbL on CVM portal
+TESOURO_CSV,Tesouro Transparente - Preço e Taxa Tesouro Direto,https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv,Official Treasury price/rate source,ODbL
+OPEN_FINANCE_SPEC,Open Finance Brasil - APIs de Investimentos,https://openfinancebrasil.atlassian.net/wiki/spaces/OF/pages/17957025,Endpoint/schema inspiration,Reference documentation
+B3_LISTINGS,B3,https://www.b3.com.br/,Real listed instruments identity,See B3 terms
+MARKET_SNAPSHOT,Dados de Mercado - IBOV snapshot,https://origin.dadosdemercado.com.br/b3/ibov,2026-10-09 closing-price snapshot for selected equities,See provider terms
+BRAPI,brapi.dev,https://brapi.dev/docs,Cross-check / refresh option for Brazilian EOD quotes,See provider terms

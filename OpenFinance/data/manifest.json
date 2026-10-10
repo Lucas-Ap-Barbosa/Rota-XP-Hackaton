@@ -1,0 +1,14 @@
+{
+  "dataset_name": "Open Finance BR Hybrid Hackathon Dataset",
+  "generated_at": "2026-10-10T15:27:48",
+  "reference_date": "2026-10-09",
+  "seed": 20261010,
+  "customers": 80,
+  "accounts": 160,
+  "bank_transactions": 2046,
+  "products": 20,
+  "investments": 600,
+  "investment_transactions": 1038,
+  "methodology": "Real Brazilian investment-product identities + public market reference snapshots + synthetic clients, holdings and transactions.",
+  "important": "Synthetic positions do not represent any real person. Synthetic CDBs are explicitly marked product_origin=SYNTHETIC."
+}
