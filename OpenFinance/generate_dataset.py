@@ -61,6 +61,35 @@ def stable_id(prefix, *parts):
     h = hashlib.sha1('|'.join(map(str,parts)).encode()).hexdigest()[:12]
     return f'{prefix}_{h}'
 
+
+_used_cpfs = set()
+
+def synthetic_cpf(customer_id):
+    """Generate a deterministic, checksum-valid synthetic CPF (digits only)."""
+    salt = 0
+    while True:
+        digest = hashlib.sha256(f'{SEED}|{customer_id}|cpf|{salt}'.encode()).hexdigest()
+        base = f'{int(digest[:16], 16) % 1_000_000_000:09d}'
+        if len(set(base)) == 1:
+            salt += 1
+            continue
+
+        digits = [int(c) for c in base]
+        s1 = sum(d*w for d,w in zip(digits, range(10,1,-1)))
+        r1 = (s1 * 10) % 11
+        d1 = 0 if r1 == 10 else r1
+
+        digits10 = digits + [d1]
+        s2 = sum(d*w for d,w in zip(digits10, range(11,1,-1)))
+        r2 = (s2 * 10) % 11
+        d2 = 0 if r2 == 10 else r2
+
+        cpf = base + str(d1) + str(d2)
+        if cpf not in _used_cpfs:
+            _used_cpfs.add(cpf)
+            return cpf
+        salt += 1
+
 def write_csv(name, rows, fields=None):
     path=DATA/name
     if not rows:
@@ -74,6 +103,7 @@ customers=[]; accounts=[]; bank_tx=[]; positions=[]; inv_tx=[]
 N=80
 for i in range(1,N+1):
     customer_id=f'CUST_{i:04d}'
+    cpf=synthetic_cpf(customer_id)
     name=f'{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)} {rng.choice(LAST_NAMES)}'
     age=rng.randint(21,68)
     income=round(math.exp(rng.uniform(math.log(2800), math.log(32000))),2)
@@ -82,7 +112,7 @@ for i in range(1,N+1):
     investable=round(max(3500, income*multiplier),2)
     checking=round(rng.uniform(0.35,1.8)*income,2)
     state=rng.choice(STATES)
-    customers.append(dict(customer_id=customer_id,name=name,age=age,state=state,monthly_income=income,risk_profile=profile,synthetic='true'))
+    customers.append(dict(customer_id=customer_id,cpf=cpf,name=name,age=age,state=state,monthly_income=income,risk_profile=profile,synthetic='true'))
     acc_id=f'ACC_{i:04d}_CHK'
     accounts.append(dict(account_id=acc_id,customer_id=customer_id,type='CONTA_CORRENTE',currency='BRL',balance=checking,status='ACTIVE',synthetic='true'))
 

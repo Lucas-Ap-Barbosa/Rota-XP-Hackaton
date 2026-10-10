@@ -9,7 +9,7 @@ DB=ROOT/'open_finance_br.db'
 DATA=ROOT/'data'
 TOKEN='hackathon-token'
 
-app=FastAPI(title='Mock Open Finance Brasil - Hybrid Investments',version='3.0.0',description='Hackathon API: Brazilian real product catalog + synthetic customers/positions. Not an official Open Finance implementation.')
+app=FastAPI(title='Mock Open Finance Brasil - Hybrid Investments',version='3.1.0',description='Hackathon API: Brazilian real product catalog + synthetic customers/positions. Not an official Open Finance implementation.')
 app.add_middleware(CORSMiddleware,allow_origins=['*'],allow_methods=['*'],allow_headers=['*'])
 
 def auth(authorization: str|None=Header(default=None)):
@@ -44,6 +44,27 @@ def dataset_source():
 @app.get('/customers',dependencies=[Depends(auth)])
 def customers(limit:int=Query(20,ge=1,le=100)):
     return envelope(rows('select * from customers order by customer_id limit ?',(limit,)))
+
+@app.get('/customers/search',dependencies=[Depends(auth)])
+def customer_search(cpf:str, name:str|None=None):
+    # Aceita CPF com ou sem pontuação.
+    cpf_digits=''.join(ch for ch in cpf if ch.isdigit())
+    if len(cpf_digits) != 11:
+        raise HTTPException(422,'CPF must contain 11 digits')
+
+    sql="""
+        select *
+        from customers
+        where replace(replace(replace(cpf,'.',''),'-',''),' ','')=?
+    """
+    args=[cpf_digits]
+
+    # O CPF identifica o cliente; o nome funciona como validação adicional.
+    if name:
+        sql+=' and lower(trim(name))=lower(trim(?))'
+        args.append(name)
+
+    return envelope(one(sql,args))
 
 @app.get('/customers/{customer_id}',dependencies=[Depends(auth)])
 def customer(customer_id:str): return envelope(one('select * from customers where customer_id=?',(customer_id,)))
