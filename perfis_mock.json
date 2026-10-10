@@ -1,0 +1,83 @@
+{
+  "29925594316": {
+    "customer_id": "CUST_0001",
+    "name": "Lucas Pereira Santos",
+    "risk_profile_base": "CONSERVATIVE",
+    "investimentos_iniciais": "Invisto principalmente em renda fixa e prefiro evitar riscos.",
+    "metas_preocupacoes_iniciais": "Quero preservar meu dinheiro, mas gostaria de melhorar os rendimentos.",
+    "historico_resumos": [
+      {
+        "observacoes_acumuladas": 0,
+        "resumo": "O cliente prioriza a preservação do patrimônio, investe principalmente em renda fixa e deseja melhorar os rendimentos sem assumir riscos excessivos. É importante investigar sua tolerância a perdas, a necessidade de liquidez e seus objetivos financeiros.",
+        "perfil_preliminar": "Conservador"
+      }
+    ]
+  },
+  "80423210408": {
+    "customer_id": "CUST_0002",
+    "name": "Felipe Fernandes Almeida",
+    "risk_profile_base": "AGGRESSIVE",
+    "investimentos_iniciais": "Tenho renda fixa e quero conhecer ações e fundos.",
+    "metas_preocupacoes_iniciais": "Quero aumentar meu patrimônio, mas tenho medo de investir na hora errada.",
+    "historico_resumos": [
+      {
+        "observacoes_acumuladas": 0,
+        "resumo": "O cliente possui investimentos em renda fixa e demonstra interesse em conhecer ações e fundos para aumentar seu patrimônio. Entretanto, relata receio de escolher um momento inadequado para investir. A reunião deve explorar seus objetivos financeiros, horizonte de investimento e tolerância a oscilações.",
+        "perfil_preliminar": "Agressivo"
+      },
+      {
+        "observacoes_acumuladas": 1,
+        "resumo": "O cliente possui investimentos em renda fixa e demonstra interesse em conhecer ações e fundos para aumentar seu patrimônio. Embora tenha receio de escolher um momento inadequado para investir, pretende realizar aportes mensais. A reunião deve explorar como essa regularidade pode se encaixar em seu planejamento financeiro, além de esclarecer seu horizonte de investimento, sua tolerância a oscilações e as características das diferentes classes de ativos.",
+        "perfil_preliminar": "Agressivo"
+      }
+    ]
+  },
+  "13102856756": {
+    "customer_id": "CUST_0003",
+    "name": "Lucas Gomes Lopes",
+    "risk_profile_base": "CONSERVATIVE",
+    "investimentos_iniciais": "Tenho investimentos em mais de um banco e consulto cada aplicativo separadamente.",
+    "metas_preocupacoes_iniciais": "Quero entender meu patrimônio total, os rendimentos e se estou alcançando meus objetivos.",
+    "historico_resumos": [
+      {
+        "observacoes_acumuladas": 0,
+        "resumo": "O cliente mantém investimentos em diferentes instituições e busca uma visão integrada do patrimônio, dos rendimentos e do progresso em relação aos objetivos financeiros. A reunião deve considerar a consolidação das informações disponíveis e a distribuição dos ativos.",
+        "perfil_preliminar": "Conservador"
+      },
+      {
+        "observacoes_acumuladas": 1,
+        "resumo": "O cliente mantém investimentos em diferentes instituições e deseja compreender seu patrimônio total, os rendimentos e o progresso em relação aos objetivos financeiros. Também relata dificuldade para acompanhar as taxas cobradas, tornando relevante investigar os custos identificáveis de cada instituição e a disponibilidade dos dados financeiros.",
+        "perfil_preliminar": "Conservador"
+      },
+      {
+        "observacoes_acumuladas": 2,
+        "resumo": "O cliente busca consolidar os investimentos mantidos em diferentes instituições para compreender o patrimônio total, os rendimentos e o alinhamento com seus objetivos. Apresenta dificuldade para acompanhar as taxas cobradas e suspeita de possuir investimentos semelhantes em instituições distintas. A reunião deve explorar os custos identificáveis, a possível sobreposição de ativos e a distribuição geral do patrimônio, com base nos dados disponíveis.",
+        "perfil_preliminar": "Conservador"
+      },
+      {
+        "observacoes_acumuladas": 3,
+        "resumo": "O cliente deseja obter uma visão consolidada de seus investimentos, compreender os rendimentos e verificar o alinhamento do patrimônio com seus objetivos financeiros. Relata dificuldade para acompanhar as taxas cobradas e suspeita de possuir investimentos semelhantes em diferentes instituições. Além disso, pretende organizar essas informações antes de tomar novas decisões. A reunião deve priorizar a consolidação dos dados disponíveis, a análise dos custos identificáveis, a verificação de possíveis sobreposições e o esclarecimento de seus objetivos.",
+        "perfil_preliminar": "Conservador"
+      }
+    ]
+  },
+  "73271782105": {
+    "customer_id": "CUST_0004",
+    "name": "Felipe Ferreira Ferreira",
+    "risk_profile_base": "MODERATE",
+    "investimentos_iniciais": "Invisto em ações e fundos de maior risco e aceito oscilações significativas em busca de retornos elevados.",
+    "metas_preocupacoes_iniciais": "Quero aumentar meu patrimônio no longo prazo e estou disposto a enfrentar perdas temporárias para buscar maior rentabilidade.",
+    "historico_resumos": [
+      {
+        "observacoes_acumuladas": 0,
+        "resumo": "O cliente busca crescimento patrimonial no longo prazo, demonstra interesse em ativos de maior risco e declara aceitar oscilações significativas em busca de retornos elevados. A reunião deve explorar seu horizonte de investimento, sua capacidade financeira de suportar perdas e a diversificação de sua carteira.",
+        "perfil_preliminar": "Moderado"
+      },
+      {
+        "observacoes_acumuladas": 1,
+        "resumo": "O cliente busca crescimento patrimonial no longo prazo e demonstra disposição para investir em ativos de maior risco, aceitando oscilações significativas em busca de rentabilidade elevada. Informa que não pretende resgatar os recursos nos próximos dez anos, indicando um horizonte de investimento prolongado. A reunião deve avaliar sua capacidade de suportar perdas, a diversificação da carteira e a adequação dos investimentos aos seus objetivos de longo prazo.",
+        "perfil_preliminar": "Moderado"
+      }
+    ]
+  }
+}
