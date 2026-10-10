@@ -7,7 +7,7 @@ DATA=ROOT/'data'
 DB=ROOT/'open_finance_br.db'
 
 SCHEMAS={
-'customers':'''CREATE TABLE customers(customer_id TEXT PRIMARY KEY,name TEXT,age INTEGER,state TEXT,monthly_income REAL,risk_profile TEXT,synthetic TEXT)''',
+'customers':'''CREATE TABLE customers(customer_id TEXT PRIMARY KEY,cpf TEXT NOT NULL UNIQUE,name TEXT,age INTEGER,state TEXT,monthly_income REAL,risk_profile TEXT,synthetic TEXT)''',
 'accounts':'''CREATE TABLE accounts(account_id TEXT PRIMARY KEY,customer_id TEXT,type TEXT,currency TEXT,balance REAL,status TEXT,synthetic TEXT)''',
 'bank_transactions':'''CREATE TABLE bank_transactions(transaction_id TEXT PRIMARY KEY,account_id TEXT,customer_id TEXT,date TEXT,type TEXT,credit_debit TEXT,amount REAL,currency TEXT,description TEXT,synthetic TEXT)''',
 'investment_products':'''CREATE TABLE investment_products(product_id TEXT PRIMARY KEY,type TEXT,subtype TEXT,name TEXT,ticker TEXT,cnpj TEXT,isin TEXT,indexer TEXT,rate TEXT,maturity_date TEXT,current_price REAL,price_date TEXT,currency TEXT,product_origin TEXT,price_origin TEXT,official_source_url TEXT,reference_source_url TEXT)''',
@@ -47,6 +47,7 @@ def main():
         vals=[[conv(table,c,row[c]) for c in cols] for row in rows]
         cur.executemany(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({q})",vals)
     cur.executescript('''
+      CREATE UNIQUE INDEX idx_customers_cpf ON customers(cpf);
       CREATE INDEX idx_accounts_customer ON accounts(customer_id);
       CREATE INDEX idx_btx_customer_date ON bank_transactions(customer_id,date);
       CREATE INDEX idx_inv_customer_type ON investments(customer_id,type);

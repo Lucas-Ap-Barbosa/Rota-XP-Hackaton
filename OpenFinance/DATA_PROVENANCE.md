@@ -24,7 +24,7 @@ O snapshot incluído registra a data e uma referência pública para os valores 
 
 ## O que é sintético
 
-- nome/idade/UF/renda dos clientes;
+- nome/CPF/idade/UF/renda dos clientes;
 - saldo em conta;
 - PIX, boletos, compras e salários;
 - perfil de risco;
@@ -32,6 +32,8 @@ O snapshot incluído registra a data e uma referência pública para os valores 
 - produtos que cada cliente possui;
 - quantidades, datas de compra e preço médio;
 - CDBs e suas condições comerciais.
+
+Os CPFs são gerados sinteticamente com dígitos verificadores válidos e não pertencem a pessoas reais.
 
 Nenhuma carteira é uma carteira real anonimizada. As carteiras foram **criadas do zero** com regras determinísticas.
 

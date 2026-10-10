@@ -4,7 +4,7 @@ API REST para hackathon que simula parte do ecossistema de **Open Finance Brasil
 
 A base combina:
 
-- clientes, contas, carteiras e movimentações **sintéticas**;
+- clientes, CPFs, contas, carteiras e movimentações **sintéticas**;
 - produtos de investimento brasileiros reais quando possível;
 - valores em **BRL**;
 - fundos, Tesouro, renda variável e renda fixa bancária;
@@ -283,6 +283,7 @@ Cada cliente contém campos como:
 ```json
 {
   "customer_id": "CUST_0001",
+  "cpf": "29925594316",
   "name": "Lucas Pereira Santos",
   "age": 67,
   "state": "BA",
@@ -306,7 +307,9 @@ curl \
   http://localhost:8000/customers/CUST_0001
 ```
 
-Retorna informações como nome, idade, estado, renda mensal e perfil de risco.
+Retorna informações como CPF sintético, nome, idade, estado, renda mensal e perfil de risco.
+
+> **CPF:** todos os CPFs da base são sintéticos, possuem 11 dígitos e dígitos verificadores válidos apenas para facilitar identificação e integração durante a demonstração. Eles não representam pessoas reais.
 
 ---
 

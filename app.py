@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import requests
 from datetime import datetime
 
 # Tenta integrar com os módulos dos colegas, com fallback seguro
@@ -77,7 +78,110 @@ def compilar_resumo_cliente():
     return texto
 
 
-# --- 4. INTERFACE PRINCIPAL ---
+# --- 4. INTEGRAÇÃO COM A API OPEN FINANCE + OVER CP ---
+API_URL = "http://localhost:8000"
+API_TOKEN = "hackathon-token"
+API_HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
+
+PROFILE_LABELS = {
+    "CONSERVATIVE": "Conservador",
+    "MODERATE": "Moderado",
+    "AGGRESSIVE": "Agressivo",
+}
+
+# Regra simplificada de risco para a hackathon.
+# Não representa a metodologia oficial de suitability da XP.
+RISK_BY_TYPE = {
+    "BANK_FIXED_INCOME": 1.0,
+    "TREASURY": 2.0,
+    "FUND": 3.0,
+    "VARIABLE_INCOME": 5.0,
+}
+
+PROFILE_LIMIT = {
+    "CONSERVATIVE": 2.0,
+    "MODERATE": 3.5,
+    "AGGRESSIVE": 5.0,
+}
+
+
+def api_get(endpoint, params=None):
+    response = requests.get(
+        f"{API_URL}{endpoint}",
+        headers=API_HEADERS,
+        params=params,
+        timeout=5,
+    )
+    response.raise_for_status()
+    body = response.json()
+    return body.get("data", body)
+
+
+def carregar_cliente_open_finance(nome, cpf):
+    cliente = api_get(
+        "/customers/search",
+        params={"cpf": cpf, "name": nome},
+    )
+
+    customer_id = cliente["customer_id"]
+
+    investimentos = api_get(
+        "/investments",
+        params={"customer_id": customer_id},
+    )
+
+    resumo = api_get(
+        "/portfolio/summary",
+        params={"customer_id": customer_id},
+    )
+
+    return cliente, investimentos, resumo
+
+
+def calcular_over_cp(cliente, investimentos):
+    total = sum(float(inv.get("current_amount") or 0) for inv in investimentos)
+    perfil = cliente["risk_profile"]
+    limite = PROFILE_LIMIT.get(perfil, 3.0)
+
+    detalhes = []
+
+    if total <= 0:
+        return {
+            "over_cp": False,
+            "portfolio_risk": 0.0,
+            "allowed_risk": limite,
+            "total_investido": 0.0,
+            "detalhes": detalhes,
+        }
+
+    risco_carteira = 0.0
+
+    for inv in investimentos:
+        valor = float(inv.get("current_amount") or 0)
+        peso = valor / total
+        risco_produto = RISK_BY_TYPE.get(inv.get("type"), 3.0)
+        contribuicao = peso * risco_produto
+        risco_carteira += contribuicao
+
+        detalhes.append({
+            "Produto": inv.get("product_name", "-"),
+            "Classe": inv.get("type", "-"),
+            "Valor (R$)": round(valor, 2),
+            "Peso (%)": round(peso * 100, 2),
+            "Risco": risco_produto,
+            "Contribuição": round(contribuicao, 3),
+        })
+
+    return {
+        "over_cp": risco_carteira > limite,
+        "portfolio_risk": round(risco_carteira, 2),
+        "allowed_risk": limite,
+        "total_investido": round(total, 2),
+        "detalhes": detalhes,
+    }
+
+
+# --- 5. INTERFACE PRINCIPAL ---
 tab_cliente, tab_assessor = st.tabs(["📱 Visão do Investidor (Chat)", "📊 Visão do Assessor (Cockpit)"])
 
 # ==========================================================
@@ -224,55 +328,185 @@ with tab_cliente:
 
 
 # ==========================================================
-# ABA 2: VISÃO DO ASSESSOR (COCKPIT)
+# ABA 2: VISÃO DO ASSESSOR — SESSÃO OVER CP
 # ==========================================================
 with tab_assessor:
-    st.header("Briefing Executivo do Cliente")
-    
-    # Grid de métricas do topo (incluindo a Modalidade)
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Cliente", MOCK_OPEN_FINANCE["cliente"])
-    col2.metric("Perfil de Investidor", MOCK_OPEN_FINANCE["perfil"])
-    
-    status_data_hora = f"{st.session_state.agendamento['data']} às {st.session_state.agendamento['hora']}" if st.session_state.agendamento else "Pendente"
-    col3.metric("Data e Horário", status_data_hora)
-    
-    modalidade_status = st.session_state.agendamento["modalidade"] if st.session_state.agendamento else "Aguardando definição"
-    col4.metric("Modalidade", modalidade_status)
+    st.header("Análise de Compatibilidade da Carteira — OVER CP")
 
-    st.divider()
+    if not st.session_state.identificacao_concluida:
+        st.info("Identifique o investidor na aba ao lado para liberar a análise.")
+    elif not st.session_state.open_finance_autorizado:
+        st.warning("Aguardando autorização de compartilhamento via Open Finance.")
+    else:
+        nome = st.session_state.cliente_dados["nome"]
+        cpf = st.session_state.cliente_dados["cpf"]
 
-    col_esq, col_dir = st.columns([1, 1])
+        try:
+            cliente, investimentos, resumo = carregar_cliente_open_finance(nome, cpf)
+            over_cp = calcular_over_cp(cliente, investimentos)
 
-    with col_esq:
-        st.subheader("📋 Dores e Demandas Captadas pelo Bot")
-        if st.session_state.resumo_dores:
-            st.info(st.session_state.resumo_dores)
-            st.caption("💡 Sugestão para o assessor: abordar pontos de liquidez imediata e rebalanceamento de ativos.")
-        else:
-            st.write("O cliente ainda não enviou observações nesta sessão.")
+            perfil_codigo = cliente["risk_profile"]
+            perfil_label = PROFILE_LABELS.get(perfil_codigo, perfil_codigo)
 
-        st.subheader("🚨 Radar de Risco & Alertas (Regras de Negócio)")
-        alertas = []
-        if MOCK_OPEN_FINANCE["saldo_conta_corrente"] > 50000:
-            alertas.append(f"⚠️ **Caixa Ocioso Elevado:** R$ {MOCK_OPEN_FINANCE['saldo_conta_corrente']:,.2f} parados em conta corrente sem rendimento.")
-        
-        for pos in MOCK_OPEN_FINANCE["posicoes"]:
-            if pos["valor"] > 250000 and pos["tipo"] == "Renda Fixa":
-                alertas.append(f"⚠️ **Risco de FGC Excedido:** R$ {pos['valor']:,.2f} no {pos['instituicao']} (Teto de R$ 250 mil).")
-            if "-18" in pos["taxa"]:
-                alertas.append(f"🔻 **Alerta de Volatilidade:** Queda de 18% em {pos['produto']} no último mês.")
+            # ------------------------------
+            # Cabeçalho executivo
+            # ------------------------------
+            col1, col2, col3, col4 = st.columns(4)
 
-        for alerta in alertas:
-            st.warning(alerta)
+            col1.metric("Cliente", cliente["name"])
+            col2.metric("Perfil", perfil_label)
+            col3.metric("Risco da Carteira", f"{over_cp['portfolio_risk']:.2f}")
+            col4.metric("Limite do Perfil", f"{over_cp['allowed_risk']:.2f}")
 
-    with col_dir:
-        st.subheader("💰 Carteira Consolidada (Open Finance)")
-        if st.session_state.open_finance_autorizado:
-            df = pd.DataFrame(MOCK_OPEN_FINANCE["posicoes"])
-            st.dataframe(df, use_container_width=True)
-            
-            patrimonio_total = sum(p["valor"] for p in MOCK_OPEN_FINANCE["posicoes"]) + MOCK_OPEN_FINANCE["saldo_conta_corrente"]
-            st.metric("Patrimônio Total Rastreado", f"R$ {patrimonio_total:,.2f}")
-        else:
-            st.warning("Aguardando autorização de Open Finance pelo cliente na aba ao lado.")
+            st.divider()
+
+            # ------------------------------
+            # Status OVER CP
+            # ------------------------------
+            st.subheader("🚦 Status de Suitability")
+
+            if over_cp["over_cp"]:
+                st.error(
+                    f"🚨 **OVER CP IDENTIFICADO** — o score de risco da carteira "
+                    f"({over_cp['portfolio_risk']:.2f}) está acima do limite "
+                    f"definido para o perfil {perfil_label} "
+                    f"({over_cp['allowed_risk']:.2f})."
+                )
+            else:
+                st.success(
+                    f"✅ **Carteira compatível com o perfil** — o score de risco "
+                    f"({over_cp['portfolio_risk']:.2f}) está dentro do limite "
+                    f"do perfil {perfil_label} ({over_cp['allowed_risk']:.2f})."
+                )
+
+            st.caption(
+                "Regra demonstrativa para hackathon. O cálculo não representa "
+                "a metodologia oficial de suitability/OVER CP da XP."
+            )
+
+            st.divider()
+
+            # ------------------------------
+            # Visão financeira + alocação
+            # ------------------------------
+            col_esq, col_dir = st.columns([1, 1])
+
+            with col_esq:
+                st.subheader("💰 Resumo do Patrimônio")
+
+                st.metric(
+                    "Investimentos",
+                    f"R$ {float(resumo.get('investmentsMarketValueBRL', 0)):,.2f}",
+                )
+                st.metric(
+                    "Saldo em Conta",
+                    f"R$ {float(resumo.get('cashBRL', 0)):,.2f}",
+                )
+                st.metric(
+                    "Patrimônio Financeiro Total",
+                    f"R$ {float(resumo.get('totalFinancialAssetsBRL', 0)):,.2f}",
+                )
+
+                pnl = float(resumo.get("unrealizedPnLBRL", 0))
+                st.metric(
+                    "P&L Não Realizado",
+                    f"R$ {pnl:,.2f}",
+                )
+
+                st.subheader("📊 Alocação por Classe")
+
+                allocation = resumo.get("allocationByType", {})
+                if allocation:
+                    df_alloc = pd.DataFrame(
+                        [
+                            {"Classe": classe, "Valor (R$)": valor}
+                            for classe, valor in allocation.items()
+                        ]
+                    )
+                    total_alloc = df_alloc["Valor (R$)"].sum()
+                    if total_alloc > 0:
+                        df_alloc["Peso (%)"] = (
+                            df_alloc["Valor (R$)"] / total_alloc * 100
+                        ).round(2)
+
+                    st.dataframe(
+                        df_alloc,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info("Nenhuma alocação disponível.")
+
+            with col_dir:
+                st.subheader("🧮 Composição do Score de Risco")
+
+                if over_cp["detalhes"]:
+                    df_risco = pd.DataFrame(over_cp["detalhes"])
+
+                    st.dataframe(
+                        df_risco,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    st.caption(
+                        "Score da carteira = Σ (peso da posição × risco atribuído à classe)."
+                    )
+                else:
+                    st.info("Cliente sem posições de investimento.")
+
+                st.subheader("📋 Escala usada na demonstração")
+
+                df_regras = pd.DataFrame([
+                    {"Classe": "Renda Fixa Bancária", "Código": "BANK_FIXED_INCOME", "Risco": 1.0},
+                    {"Classe": "Tesouro", "Código": "TREASURY", "Risco": 2.0},
+                    {"Classe": "Fundos", "Código": "FUND", "Risco": 3.0},
+                    {"Classe": "Renda Variável", "Código": "VARIABLE_INCOME", "Risco": 5.0},
+                ])
+
+                st.dataframe(
+                    df_regras,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+            # ------------------------------
+            # Dores captadas / reunião
+            # ------------------------------
+            st.divider()
+            st.subheader("📋 Contexto para o Assessor")
+
+            col_contexto, col_reuniao = st.columns([2, 1])
+
+            with col_contexto:
+                if st.session_state.resumo_dores:
+                    st.info(st.session_state.resumo_dores)
+                else:
+                    st.write("O cliente ainda não concluiu o briefing conversacional.")
+
+            with col_reuniao:
+                if st.session_state.agendamento:
+                    st.write(
+                        f"**Data:** {st.session_state.agendamento['data']}\n\n"
+                        f"**Horário:** {st.session_state.agendamento['hora']}\n\n"
+                        f"**Modalidade:** {st.session_state.agendamento['modalidade']}"
+                    )
+                else:
+                    st.write("**Reunião:** ainda não agendada.")
+
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                st.error(
+                    "Cliente não encontrado na API. Confira se o nome e CPF "
+                    "informados correspondem a um cliente da base."
+                )
+            else:
+                st.error(f"Erro retornado pela API Open Finance: {exc}")
+
+        except requests.RequestException as exc:
+            st.error(
+                "Não foi possível comunicar com a API Open Finance. "
+                "Confirme se ela está rodando em http://localhost:8000."
+            )
+            st.caption(str(exc))
+
